@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	EPMFID       = "$EPM"           // FlatBuffer file identifier (4 bytes)
-	lastFilePath = "last_stack.dat" // File to store the last transmitted stack
+	EPMFID       = "$EPM"          // FlatBuffer file identifier (4 bytes)
+	lastFilePath = "last_stack.fb" // File to store the last transmitted stack
 )
 
 func main() {
