@@ -1,0 +1,4 @@
+github.com/DigitalArsenal/spacedatastandards.org/lib/go v0.0.0-20250402040319-be1e033a5383 h1:XIViyadjmvDJQ+rmwp1nRmYYHg22iyk73qHLjLMJKBw=
+github.com/DigitalArsenal/spacedatastandards.org/lib/go v0.0.0-20250402040319-be1e033a5383/go.mod h1:jFhDGCY8zPLZ2pqE3997FowChLydOltNz98rT+Be6UM=
+github.com/google/flatbuffers v25.2.10+incompatible h1:F3vclr7C3HpB1k9mxCGRMXq6FdUalZ6H/pNX4FP1v0Q=
+github.com/google/flatbuffers v25.2.10+incompatible/go.mod h1:1AeVuKshWv4vARoZatz6mlQ0JxURH0Kv5+zNeJKJCa8=
