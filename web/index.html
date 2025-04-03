@@ -21,7 +21,6 @@
     <h1>FlatBuffers Stream Viewer - EPMT Object API</h1>
     <div>
       <button id="streamBtn">GET /stream</button>
-      <button id="lastBtn">GET /last</button>
       <button id="submitBtn">POST Edited Table</button>
     </div>
 
@@ -102,17 +101,6 @@
             clearTable();
             parseFlatBufferObjects(buf);
             appendLog("Loaded /stream");
-          })
-          .catch((err) => appendLog("Error: " + err));
-      });
-
-      document.getElementById("lastBtn").addEventListener("click", () => {
-        fetch(SERVER_URL + "/last")
-          .then((res) => res.arrayBuffer())
-          .then((buf) => {
-            clearTable();
-            parseFlatBufferObjects(buf);
-            appendLog("Loaded /last");
           })
           .catch((err) => appendLog("Error: " + err));
       });
