@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>FlatBuffers Stream Viewer (EPMT Object API)</title>
+    <style>
+      table,
+      th,
+      td {
+        border: 1px solid black;
+        border-collapse: collapse;
+        padding: 4px;
+      }
+      textarea {
+        margin-top: 12px;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>FlatBuffers Stream Viewer - EPMT Object API</h1>
+    <div>
+      <button id="streamBtn">GET /stream</button>
+      <button id="lastBtn">GET /last</button>
+      <button id="submitBtn">POST Edited Table</button>
+    </div>
+
+    <table id="epmTable">
+      <thead>
+        <tr>
+          <th>DN</th>
+          <th>LEGAL_NAME</th>
+          <th>EMAIL</th>
+          <th>TELEPHONE</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <textarea id="log" rows="10" placeholder="Log output..."></textarea>
+
+    <script type="module">
+      import * as flatbuffers from "https://cdn.jsdelivr.net/npm/flatbuffers@25.2.10/+esm";
+      import { standards } from "https://cdn.jsdelivr.net/npm/spacedatastandards.org@1.41.0/+esm";
+      const { EPM, EPMT } = standards.EPM;
+
+      const SERVER_URL = "http://localhost:8080";
+      const FID = "$EPM";
+
+      function appendLog(msg) {
+        const log = document.getElementById("log");
+        log.value += msg + "\n";
+        log.scrollTop = log.scrollHeight;
+      }
+
+      function clearTable() {
+        document.querySelector("#epmTable tbody").innerHTML = "";
+      }
+
+      function addRowToTable(epmt) {
+        const tbody = document.querySelector("#epmTable tbody");
+        const row = document.createElement("tr");
+        ["DN", "LEGAL_NAME", "EMAIL", "TELEPHONE"].forEach((field) => {
+          const cell = document.createElement("td");
+          const input = document.createElement("input");
+          input.value = epmt[field] || "";
+          input.dataset.field = field;
+          cell.appendChild(input);
+          row.appendChild(cell);
+        });
+        tbody.appendChild(row);
+      }
+
+      function parseFlatBufferObjects(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let offset = 0;
+
+        while (offset + 4 <= bytes.length) {
+          const size = new DataView(buffer, offset).getUint32(0, true);
+          const totalSize = 4 + size;
+
+          if (offset + totalSize > bytes.length) {
+            appendLog("Incomplete message at offset " + offset);
+            break;
+          }
+
+          const bb = new flatbuffers.ByteBuffer(
+            bytes.subarray(offset, offset + totalSize)
+          );
+          const epm = EPM.getSizePrefixedRootAsEPM(bb);
+          const obj = epm.unpack();
+          addRowToTable(obj);
+
+          offset += totalSize;
+        }
+      }
+
+      document.getElementById("streamBtn").addEventListener("click", () => {
+        fetch(SERVER_URL + "/stream")
+          .then((res) => res.arrayBuffer())
+          .then((buf) => {
+            clearTable();
+            parseFlatBufferObjects(buf);
+            appendLog("Loaded /stream");
+          })
+          .catch((err) => appendLog("Error: " + err));
+      });
+
+      document.getElementById("lastBtn").addEventListener("click", () => {
+        fetch(SERVER_URL + "/last")
+          .then((res) => res.arrayBuffer())
+          .then((buf) => {
+            clearTable();
+            parseFlatBufferObjects(buf);
+            appendLog("Loaded /last");
+          })
+          .catch((err) => appendLog("Error: " + err));
+      });
+
+      document.getElementById("submitBtn").addEventListener("click", () => {
+        const rows = document.querySelectorAll("#epmTable tbody tr");
+        const buffers = [];
+
+        rows.forEach((row) => {
+          const inputs = row.querySelectorAll("input");
+          const epmt = new EPMT();
+
+          inputs.forEach((input) => {
+            epmt[input.dataset.field] = input.value;
+          });
+
+          // Build the FlatBuffer
+          const builder = new flatbuffers.Builder(1024);
+          const offset = epmt.pack(builder);
+          builder.finish(offset, FID); // ✅ includes file identifier
+
+          // ⬇️ Manually add 4-byte little-endian size prefix
+          const body = builder.asUint8Array();
+          const size = body.length;
+          const full = new Uint8Array(4 + size);
+          const view = new DataView(full.buffer);
+          view.setUint32(0, size, true); // little endian
+          full.set(body, 4);
+
+          buffers.push(full);
+        });
+
+        // Combine all buffers
+        const totalLen = buffers.reduce((sum, b) => sum + b.length, 0);
+        const finalBuffer = new Uint8Array(totalLen);
+        let offset = 0;
+        for (const buf of buffers) {
+          finalBuffer.set(buf, offset);
+          offset += buf.length;
+        }
+
+        fetch(SERVER_URL + "/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/octet-stream" },
+          body: finalBuffer,
+        })
+          .then((res) => res.text())
+          .then((text) => {
+            appendLog("Submitted: " + text);
+          })
+          .catch((err) => appendLog("Error: " + err));
+      });
+    </script>
+  </body>
+</html>

@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/DigitalArsenal/spacedatastandards.org/lib/go/EPM"
@@ -20,14 +23,48 @@ const (
 )
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
+	// Seed the random number generator
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	http.HandleFunc("/stream", streamHandler)
-	http.HandleFunc("/submit", submitHandler)
-	http.HandleFunc("/last", lastHandler)
+	// Set up the HTTP server
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./web/index.html")
+	})
+	mux.HandleFunc("/stream", streamHandler)
+	mux.HandleFunc("/submit", submitHandler)
+	mux.HandleFunc("/last", lastHandler)
 
-	fmt.Println("Server listening on :8080")
-	http.ListenAndServe(":8080", nil)
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: mux,
+	}
+
+	// Start server in a goroutine
+	go func() {
+		fmt.Println("Server listening on :8080")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Println("Server error:", err)
+			os.Exit(1)
+		}
+	}()
+
+	// Handle graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit,
+		os.Interrupt,    // Ctrl+C
+		syscall.SIGINT,  // interrupt
+		syscall.SIGTERM, // terminate
+		syscall.SIGQUIT, // quit
+		syscall.SIGHUP,  // terminal hangup
+		syscall.SIGABRT, // abort
+	)
+	<-quit
+
+	fmt.Println("Shutting down server...")
+	server.Shutdown(context.Background())
+
+	_ = rng
 }
 
 // streamHandler generates a stream of EPM flatbuffers.
